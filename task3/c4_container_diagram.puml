@@ -1,0 +1,52 @@
+@startuml
+!include <C4/C4_Container>
+
+Person(client_existing, "Клиент интернет-банка")
+
+System_Boundary(ibs_boundary, "Интернет-банк (существующий)") {
+    Container(ibs_web, "Web-приложение", "ASP.NET MVC 4.5, C#", "Страницы личного кабинета, платежи")
+    Container(ibs_db, "БД интернет-банка", "MS SQL", "Данные клиентов, счета")
+    Container(ibs_legacy, "Монолитная логика", ".NET Framework", "Обработка платежей, справочники")
+}
+
+System_Boundary(abs_boundary, "АБС (существующая)") {
+    Container(abs_client, "Десктоп-клиент", "Delphi", "Интерфейс сотрудников")
+    Container(abs_db, "База данных АБС", "Oracle, PL/SQL", "Все бухгалтерские операции, депозиты")
+    Container(abs_procs, "Хранимые процедуры", "PL/SQL", "Бизнес-логика открытия депозитов")
+}
+
+System_Boundary(deposit_mvp, "MVP депозитов (новое)") {
+    Container(gateway, "API Gateway", "Spring Cloud Gateway / Kong", "Маршрутизация, аутентификация")
+    Container(deposit_svc, "Депозитный сервис", "Spring Boot, Java 17", "Управление заявками, кэш ставок, интеграция")
+    Container(deposit_db, "БД депозитного сервиса", "MS SQL", "Заявки, черновики, кэш ставок")
+    Container(redis, "Redis", "Кэш", "Ставки, справочники")
+    Container(kafka, "Kafka", "Брокер сообщений", "Топики deposit-requests, deposit-events")
+    Container(sms_adapter, "СМС-адаптер", "Spring Boot", "Взаимодействие с СМС-шлюзом")
+}
+
+System_Ext(cc_system, "Система кол-центра", "Java, React, PostgreSQL")
+System_Ext(sms_gateway, "СМС-шлюз оператора", "Внешнее API")
+System_Ext(site, "Сайт", "PHP, React")
+
+Rel(client_existing, ibs_web, "Использует", "HTTPS")
+Rel(ibs_web, gateway, "Вызывает REST API депозитов", "HTTPS")
+Rel(site, gateway, "Вызывает REST API", "HTTPS")
+
+Rel(gateway, deposit_svc, "Передаёт запросы", "REST")
+Rel(deposit_svc, deposit_db, "Читает/пишет", "JDBC")
+Rel(deposit_svc, redis, "Читает/пишет", "Jedis")
+Rel(deposit_svc, kafka, "Публикует (request)", "Kafka Producer")
+Rel(kafka, deposit_svc, "Потребляет (events)", "Kafka Consumer")
+
+Rel(deposit_svc, sms_adapter, "Вызывает", "REST")
+Rel(sms_adapter, sms_gateway, "Отправляет СМС", "API")
+
+Rel(deposit_svc, cc_system, "Передаёт заявку с сайта", "REST")
+
+Rel(deposit_svc, abs_boundary, "Асинхронная запись заявки в АБС", "Через промежуточную таблицу в Oracle")
+
+Rel(backoffice, abs_client, "Использует")
+Rel(abs_client, abs_db, "Читает/пишет")
+Rel(abs_db, abs_procs, "Выполняет")
+
+@enduml
