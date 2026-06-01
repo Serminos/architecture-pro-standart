@@ -1,0 +1,27 @@
+@startuml
+!include <C4/C4_Container>
+
+System_Boundary(deposit_svc, "Депозитный сервис") {
+    Container(api, "REST API", "Spring Boot", "Управление ставками, получение")
+    Container(cache, "Redis", "Кэш ставок")
+    Container(db, "БД (MS SQL)", "Хранилище ставок, история")
+    Container(importer, "Импортёр Excel", "Python / Java", "Читает Excel, обновляет БД")
+    Container(exporter_api, "Экспортёр API", "Spring Boot", "Отдаёт ставки кол-центру")
+    Container(exporter_sftp, "Экспортёр SFTP", "Spring Integration", "Генерирует файл и кладёт на SFTP")
+}
+
+System_Ext(cc_system, "Система кол-центра", "Java, React")
+System_Ext(sftp_server, "SFTP-сервер (банка)", "Хранилище файлов для партнёра")
+System_Ext(partner_cc, "Система партнёрского кол-центра", "Забирает файл")
+
+Rel(importer, db, "Записывает")
+Rel(api, cache, "Читает/пишет")
+Rel(api, db, "Читает")
+Rel(exporter_api, cache, "Читает")
+Rel(cc_system, exporter_api, "GET /api/v1/rates", "HTTPS")
+
+Rel(exporter_sftp, db, "Читает")
+Rel(exporter_sftp, sftp_server, "Выгружает rates_YYYYMMDD.csv")
+Rel(partner_cc, sftp_server, "Забирает файл (внешний процесс)")
+
+@enduml
