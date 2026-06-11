@@ -1,0 +1,21 @@
+@startuml
+!include <C4/C4_Context>
+
+Person(back_office, "Бэк-офис депозитов", "Загружает Excel со ставками")
+Person(cc_operator, "Оператор кол-центра банка", "Консультирует клиентов")
+Person(partner_operator, "Оператор партнёрского кол-центра", "Консультирует клиентов")
+
+System(cc_system, "Система кол-центра банка", "Java, React, PostgreSQL")
+System_Ext(partner_system, "Система партнёрского кол-центра", "Внешняя, только файлы")
+System(deposit_svc, "Депозитный сервис (ставки)", "Java/Spring Boot")
+System_Ext(excel, "Excel-файлы", "Источник ставок")
+
+Rel(back_office, excel, "Подготавливает")
+Rel(excel, deposit_svc, "Импорт через админку")
+Rel(deposit_svc, cc_system, "REST API (список ставок)", "HTTPS")
+Rel(cc_system, cc_operator, "Показывает ставки")
+
+Rel(deposit_svc, partner_system, "Выгружает файл на SFTP", "CSV")
+Rel(partner_system, partner_operator, "Оператор читает")
+
+@enduml

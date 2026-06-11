@@ -1,0 +1,44 @@
+@startuml
+!include <C4/C4_Container>
+
+Person(client_ibs, "Клиент ИБ")
+
+System_Boundary(ibs_boundary, "Интернет-банк (существующий)") {
+    Container(ibs_web, "ASP.NET MVC", "C#", "Страницы, платежи")
+    Container(ibs_db, "MS SQL", "Данные клиентов")
+}
+
+System_Boundary(credit_mvp, "Кредитный онлайн (новое)") {
+    Container(gateway, "API Gateway", "Spring Cloud Gateway", "Маршрутизация")
+    Container(credit_facade, "Кредитный фасад", "Spring Boot, Java", "Приём заявок, предскоринг")
+    Container(facade_db, "БД фасада", "MS SQL", "Черновики, лог заявок")
+    Container(queue, "Kafka", "Топики credit-applications, scoring-results")
+    Container(conveyor, "Кредитный конвейер (Camunda)", "Java", "BPM-процессы")
+    Container(conveyor_db, "Oracle (существующая)", "Данные заявок")
+    Container(scoring, "Система скоринга", "Python, Flask", "ML")
+    Container(scoring_db, "PostgreSQL", "Модели, кэш")
+    Container(sms_adapter, "СМС-адаптер", "Spring Boot", "Отправка уведомлений")
+}
+
+System_Ext(bki, "Бюро кредитных историй", "REST API")
+System_Ext(abs, "АБС (Oracle)", "Учёт")
+System_Ext(sms_gateway, "СМС-шлюз")
+
+Rel(client_ibs, ibs_web, "Использует")
+Rel(ibs_web, gateway, "Вызывает REST", "HTTPS")
+Rel(gateway, credit_facade, "Передаёт заявку")
+
+Rel(credit_facade, facade_db, "Сохраняет черновик")
+Rel(credit_facade, scoring, "REST (предскоринг при наличии паспорта)", "Синхронно")
+Rel(credit_facade, queue, "Публикует (credit-application)")
+
+Rel(queue, conveyor, "Потребляет")
+Rel(conveyor, scoring, "REST (полный скоринг)", "Синхронно")
+Rel(scoring, bki, "REST")
+Rel(scoring, conveyor_db, "Читает данные о клиенте (кэш)")
+Rel(conveyor, sms_adapter, "Вызывает")
+Rel(sms_adapter, sms_gateway, "API")
+
+Rel(conveyor, abs, "Запись решения (через очередь или прямую вставку)", "Асинхронно")
+
+@enduml

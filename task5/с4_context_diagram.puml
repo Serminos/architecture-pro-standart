@@ -1,0 +1,39 @@
+@startuml
+!include <C4/C4_Context>
+
+Person(client_site, "Новый клиент", "Сайт")
+Person(client_ibs, "Клиент интернет-банка", "Авторизованный")
+Person(back_credit, "Бэк-офис кредитов", "Работает в кредитном конвейере")
+Person(office, "Сотрудник отделения", "АБС")
+
+System_Ext(abs, "АБС", "Oracle, PL/SQL")
+System_Ext(bki, "Бюро кредитных историй", "Внешнее REST API")
+System_Ext(sms, "СМС-шлюз", "Телеком-оператор")
+System_Ext(site, "Сайт (PHP)", "Формы заявок")
+System_Ext(ibs, "Интернет-банк (ASP.NET)", "Личный кабинет")
+
+System_Boundary(credit_online, "Кредитный онлайн (MVP год)") {
+    System(credit_facade, "Кредитный фасад", "Java/Spring Boot")
+    System(conveyor, "Кредитный конвейер (Camunda)", "Обработка заявок")
+    System(scoring, "Система скоринга (Python)", "ML модель")
+    System(gateway, "API Gateway", "Spring Cloud Gateway")
+    System(queue, "Kafka", "Брокер сообщений")
+}
+
+Rel(client_site, site, "Подаёт заявку")
+Rel(client_ibs, ibs, "Подаёт заявку")
+Rel(site, gateway, "HTTPS")
+Rel(ibs, gateway, "HTTPS")
+Rel(gateway, credit_facade, "REST")
+
+Rel(credit_facade, queue, "Публикует заявку")
+Rel(queue, conveyor, "Читает заявки")
+Rel(conveyor, scoring, "REST (синхронный скоринг)")
+Rel(scoring, bki, "REST")
+Rel(conveyor, abs, "Запись решения (асинхронно, через очередь)")
+Rel(conveyor, sms, "Отправка уведомлений")
+
+Rel(back_credit, conveyor, "UI")
+Rel(office, abs, "Работа с заявкой")
+
+@enduml

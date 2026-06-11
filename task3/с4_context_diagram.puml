@@ -1,0 +1,37 @@
+@startuml
+!include <C4/C4_Context>
+
+Person(client_new, "Новый клиент", "Посетитель сайта")
+Person(client_existing, "Клиент интернет-банка", "Авторизованный пользователь")
+Person(callcenter, "Менеджер кол-центра", "Работает в системе кол-центра")
+Person(backoffice, "Бэк-офис депозитов", "Работает в АБС")
+
+System_Ext(abs, "АБС (Oracle)", "Учёт депозитов, ставки")
+System_Ext(cc_system, "Система кол-центра", "Обработка заявок с сайта")
+System_Ext(sms_gateway, "СМС-шлюз", "Отправка уведомлений")
+System_Ext(site, "Сайт (PHP)", "Показ депозитов, форма заявки")
+System_Ext(ibs, "Интернет-банк (ASP.NET)", "Личный кабинет")
+
+System_Boundary(deposit_mvp, "MVP открытия депозитов") {
+    System(deposit_service, "Депозитный сервис", "Java/Spring Boot")
+    System(gateway, "API Gateway", "Kong / Spring Cloud Gateway")
+    SystemDb(cache, "Redis", "Кэш ставок")
+    SystemDb(queue, "Kafka", "Очередь заявок")
+}
+
+Rel(client_new, site, "Просматривает, заполняет заявку", "HTTPS")
+Rel(client_existing, ibs, "Подаёт заявку", "HTTPS")
+Rel(site, gateway, "Вызывает API", "HTTPS")
+Rel(ibs, gateway, "Вызывает API", "HTTPS")
+Rel(gateway, deposit_service, "Маршрутизирует")
+Rel(deposit_service, cache, "Читает/пишет")
+Rel(deposit_service, queue, "Публикует события о заявках")
+Rel(queue, deposit_service, "Доставляет события (для консьюмера)")
+Rel(deposit_service, sms_gateway, "Отправляет уведомления", "API")
+Rel(deposit_service, cc_system, "Передаёт заявку с сайта", "API")
+Rel_D(deposit_service, abs, "Записывает заявку через промежуточный слой", "Асинхронно, через очередь")
+
+Rel(backoffice, abs, "Обрабатывает и открывает депозит")
+Rel(callcenter, cc_system, "Обслуживает заявку")
+
+@enduml
